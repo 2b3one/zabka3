@@ -32,7 +32,7 @@ jobs:
       - name: Start Emulator
         run: |
           nohup emulator -avd pixel -no-window -no-audio -no-boot-anim &
-          sleep 60
+          sleep 90
 
       - name: Install Zappka APK
         run: |
