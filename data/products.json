@@ -1,0 +1,14 @@
+[
+  {
+    "product": "Hot-dog klasyczny",
+    "price": 8.99,
+    "points": 300,
+    "category": "Gastronomia"
+  },
+  {
+    "product": "Kawa duża",
+    "price": 6.99,
+    "points": 200,
+    "category": "Kawa"
+  }
+]
