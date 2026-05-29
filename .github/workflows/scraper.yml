@@ -21,19 +21,18 @@ jobs:
       - name: Install Tesseract OCR
         run: brew install tesseract
 
-      - name: Install Android SDK
-        run: |
-          brew install --cask android-sdk
-          brew install --cask android-platform-tools
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
 
       - name: Create AVD
         run: |
+          sdkmanager "system-images;android-34;google_apis;x86_64"
           echo "no" | avdmanager create avd -n pixel -k "system-images;android-34;google_apis;x86_64"
 
       - name: Start Emulator
         run: |
           nohup emulator -avd pixel -no-window -no-audio -no-boot-anim &
-          sleep 45
+          sleep 60
 
       - name: Install Zappka APK
         run: |
