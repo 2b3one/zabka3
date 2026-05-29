@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<title>Kalkulator Żappsów PRO+</title>
+<style>
+  body { font-family: Arial, sans-serif; background: #f4f4f4; padding: 20px; }
+  h1 { color: #2b8a3e; }
+  table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; }
+  th, td { padding: 10px; border-bottom: 1px solid #ddd; text-align: left; }
+  th { background: #2b8a3e; color: white; cursor: pointer; }
+  input, select { padding: 8px; margin: 10px 10px 10px 0; }
+  .result-box { background: #fff; padding: 15px; margin-top: 20px; border-left: 4px solid #2b8a3e; }
+  .top10-box { background: #fff; padding: 15px; margin-top: 20px; border-left: 4px solid #ff9800; }
+</style>
+</head>
+<body>
+
+<h1>Kalkulator Żappsów PRO+</h1>
+
+<label>Ile sztuk kupujesz?</label>
+<input type="number" id="qty" value="1" min="1">
+
+<br>
+
+<label>Filtr kategorii:</label>
+<select id="categoryFilter" onchange="renderTable(); renderTop10(); calculateMax();">
+  <option value="all">Wszystkie</option>
+</select>
+
+<label>Przedział cenowy:</label>
+<select id="priceFilter" onchange="renderTable(); renderTop10(); calculateMax();">
+  <option value="all">Dowolny</option>
+  <option value="10">Do 10 zł</option>
+  <option value="20">Do 20 zł</option>
+  <option value="30">Do 30 zł</option>
+  <option value="40">Do 40 zł</option>
+  <option value="50">Do 50 zł</option>
+  <option value="100">Do 100 zł</option>
+</select>
+
+<h3>Maksymalny zarobek za wybraną kwotę</h3>
+
+<label>Kwota do wydania:</label>
+<select id="budget" onchange="calculateMax()">
+  <option value="0">Wybierz...</option>
+  <option value="10">10 zł</option>
+  <option value="20">20 zł</option>
+  <option value="30">30 zł</option>
+  <option value="40">40 zł</option>
+  <option value="50">50 zł</option>
+  <option value="100">100 zł</option>
+</select>
+
+<div class="result-box" id="maxResult">
+  Wybierz kwotę, aby policzyć maksymalny zarobek.
+</div>
+
+<div class="result-box" id="summary">
+  Wybierz produkt, aby zobaczyć szczegóły.
+</div>
+
+<div class="top10-box" id="top10">
+  <h3>TOP 10 najbardziej opłacalnych produktów</h3>
+  <ul id="top10list"></ul>
+</div>
+
+<table id="productsTable">
+  <thead>
+    <tr>
+      <th onclick="sortBy('product')">Produkt</th>
+      <th onclick="sortBy('price')">Cena</th>
+      <th onclick="sortBy('points')">Żappsy</th>
+      <th onclick="sortBy('ratio')">Żappsy / zł</th>
+      <th>Oblicz</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
+
+<script>
+let products = [];
+let sortField = "ratio";
+let sortDir = "desc";
+
+async function loadProducts() {
+  const res = await fetch("data/products.json");
+  products = await res.json();
+
+  products = products.map(p => ({
+    ...p,
+    category: p.category || "Inne",
+    ratio: p.points / p.price
+  }));
+
+  const categories = [...new Set(products.map(p => p.category))];
+  const filter = document.getElementById("categoryFilter");
+  categories.forEach(cat => {
+    const opt = document.createElement("option");
+    opt.value = cat;
+    opt.textContent = cat;
+    filter.appendChild(opt);
+  });
+
+  renderTable();
+  renderTop10();
+}
+
+function applyFilters(list) {
+  const category = document.getElementById("categoryFilter").value;
+  const price = document.getElementById("priceFilter").value;
+
+  return list.filter(p => {
+    const okCategory = category === "all" || p.category === category;
+    const okPrice = price === "all" || p.price <= parseInt(price);
+    return okCategory && okPrice;
+  });
+}
+
+function renderTable() {
+  const tbody = document.querySelector("#productsTable tbody");
+  tbody.innerHTML = "";
+
+  let filtered = applyFilters(products);
+
+  filtered.sort((a, b) => {
+    if (sortField === "product") {
+      const av = a.product.toLowerCase();
+      const bv = b.product.toLowerCase();
+      if (av < bv) return sortDir === "asc" ? -1 : 1;
+      if (av > bv) return sortDir === "asc" ? 1 : -1;
+      return 0;
+    } else {
+      if (sortDir === "asc") return a[sortField] - b[sortField];
+      return b[sortField] - a[sortField];
+    }
+  });
+
+  filtered.forEach(p => {
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td>${p.product}</td>
+      <td>${p.price.toFixed(2)} zł</td>
+      <td>${p.points}</td>
+      <td>${p.ratio.toFixed(2)}</td>
+      <td><button onclick="calculate(${products.indexOf(p)})">Oblicz</button></td>
+    `;
+    tbody.appendChild(row);
+  });
+}
+
+function sortBy(field) {
+  if (sortField === field) {
+    sortDir = sortDir === "asc" ? "desc" : "asc";
+  } else {
+    sortField = field;
+    sortDir = "desc";
+  }
+  renderTable();
+}
+
+function calculate(i) {
+  const qty = parseInt(document.getElementById("qty").value);
+  const p = products[i];
+
+  const totalZapps = p.points * qty;
+  const totalCost = p.price * qty;
+
+  document.getElementById("summary").innerHTML = `
+    <strong>${p.product}</strong><br>
+    Cena: ${p.price.toFixed(2)} zł<br>
+    Żappsy za 1 szt.: ${p.points}<br>
+    Żappsy / zł: ${p.ratio.toFixed(2)}<br><br>
+    <strong>Przy ${qty} sztukach:</strong><br>
+    Koszt: ${totalCost.toFixed(2)} zł<br>
+    Żappsy: ${totalZapps}
+  `;
+}
+
+function renderTop10() {
+  const top = applyFilters(products)
+    .sort((a, b) => b.ratio - a.ratio)
+    .slice(0, 10);
+
+  const ul = document.getElementById("top10list");
+  ul.innerHTML = "";
+
+  top.forEach(p => {
+    const li = document.createElement("li");
+    li.textContent = `${p.product} — ${p.ratio.toFixed(2)} żappsów / zł`;
+    ul.appendChild(li);
+  });
+}
+
+function calculateMax() {
+  const budget = parseFloat(document.getElementById("budget").value);
+  if (!budget) {
+    document.getElementById("maxResult").innerHTML = "Wybierz kwotę.";
+    return;
+  }
+
+  let filtered = applyFilters(products);
+  filtered.sort((a, b) => b.ratio - a.ratio);
+
+  let remaining = budget;
+  let totalZapps = 0;
+  let chosen = [];
+
+  for (const p of filtered) {
+    if (p.price <= remaining) {
+      const qty = Math.floor(remaining / p.price);
+      if (qty > 0) {
+        chosen.push({
+          product: p.product,
+          qty,
+          cost: qty * p.price,
+          zapps: qty * p.points
+        });
+
+        remaining -= qty * p.price;
+        totalZapps += qty * p.points;
+      }
+    }
+  }
+
+  let html = `<strong>Maksymalny zarobek za ${budget} zł:</strong><br>
+              <strong>${totalZapps} żappsów</strong><br><br>
+              <strong>Zakupy:</strong><br>`;
+
+  if (chosen.length === 0) {
+    html += `Brak produktów spełniających kryteria.`;
+  } else {
+    chosen.forEach(c => {
+      html += `${c.qty}× ${c.product} — ${c.zapps} żappsów (koszt: ${c.cost.toFixed(2)} zł)<br>`;
+    });
+  }
+
+  html += `<br>Pozostało niewykorzystane: ${remaining.toFixed(2)} zł`;
+
+  document.getElementById("maxResult").innerHTML = html;
+}
+
+loadProducts();
+</script>
+
+</body>
+</html>
