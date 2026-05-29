@@ -1,0 +1,58 @@
+name: Zappka Scraper
+
+on:
+  schedule:
+    - cron: "0 */6 * * *"
+  workflow_dispatch:
+
+jobs:
+  scrape:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Install Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install Tesseract OCR
+        run: brew install tesseract
+
+      - name: Install Android SDK
+        run: |
+          brew install --cask android-sdk
+          brew install --cask android-platform-tools
+
+      - name: Create AVD
+        run: |
+          echo "no" | avdmanager create avd -n pixel -k "system-images;android-34;google_apis;x86_64"
+
+      - name: Start Emulator
+        run: |
+          nohup emulator -avd pixel -no-window -no-audio -no-boot-anim &
+          sleep 45
+
+      - name: Install Zappka APK
+        run: |
+          chmod +x emulator/install_apk.sh
+          ./emulator/install_apk.sh
+
+      - name: Run scraper (screenshots + scroll)
+        run: |
+          chmod +x emulator/run_scraper.sh
+          ./emulator/run_scraper.sh
+
+      - name: OCR extract
+        run: |
+          python3 ocr/extract.py
+
+      - name: Commit results
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add data/products.json
+          git commit -m "Update products.json" || echo "No changes"
+          git push
